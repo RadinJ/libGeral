@@ -1,0 +1,15 @@
+name: libGeral
+description: Uma biblioteca geral com funções úteis.
+version: 1.0.0
+
+environment:
+  sdk: '>=3.0.6 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+# Outras dependências da sua biblioteca, se houver.
+
+dev_dependencies:
+  # Dependências de desenvolvimento, se necessário.
