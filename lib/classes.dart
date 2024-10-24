@@ -2,8 +2,10 @@ library lib_geral;
 
 export 'classes.dart';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class Idioma {
   final int id;
@@ -31,15 +33,17 @@ class Idioma {
 
 class Aluno {
   final int id;
-  final String nome;
-  final String email;
-  final bool ativo;
+  String nome;
+  String email;
+  bool ativo;
+  String telefone;
 
   Aluno({
     required this.id,
     required this.nome,
     required this.email,
     required this.ativo,
+    required this.telefone,
   });
 
   factory Aluno.fromJson(Map<String, dynamic> json) {
@@ -48,6 +52,7 @@ class Aluno {
       nome: json['NOME'],
       email: json['EMAIL'] ?? '',
       ativo: (json['ATIVO'] ?? 0) == 1,
+      telefone: json['TELEFONE'] ?? '',
     );
   }
 
@@ -57,36 +62,63 @@ class Aluno {
       'nome': nome,
       'email': email,
       'ativo': ativo ? 1 : 0,
+      'telefone': telefone,
     };
   }
 
-  Future<void> salvar() async {
-    // const String apiUrl = 'http://192.168.3.2:3465/salva-aluno';
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/salvar-aluno'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(toJson()),
+      );
 
-    // try {
-    //   final resposta = await http.post(
-    //     Uri.parse(apiUrl),
-    //     headers: {'Content-Type': 'application/json'},
-    //     body: json.encode(toJson()),
-    //   );
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
 
-    //   if (resposta.statusCode == 200) {
-    //     print('Aluno salvo com sucesso');
-    //   } else {
-    //     throw Exception('Falha ao salvar aluno');
-    //   }
-    // } catch (e) {
-    //   print('Erro ao salvar aluno: $e');
-    // }
+  Future<Map<String, dynamic>> excluir() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/excluir-aluno'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id}),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
   }
 }
 
 class Professor {
   final int id;
-  final String nome;
-  final String email;
-  final String telefone;
-  final bool ativo;
+  String nome;
+  String email;
+  String telefone;
+  bool ativo;
   List<ProfIdiomas> idiomas = [];
 
   Professor({
@@ -113,7 +145,11 @@ class Professor {
       'nome': nome,
       'email': email,
       'telefone': telefone,
-      'ativo': ativo ? 1 : 0,
+      'ativo': ativo,
+      'idiomas': idiomas
+          .where((idioma) => idioma.ope != 'N')
+          .map((idioma) => idioma.toJson())
+          .toList(),
     };
   }
 
@@ -126,7 +162,9 @@ class Professor {
       if (resposta.statusCode == 200) {
         List<dynamic> dadosJson = json.decode(resposta.body);
 
-        idiomas = dadosJson.map((jsonItem) => ProfIdiomas.fromJson(jsonItem)).toList();
+        idiomas = dadosJson
+            .map((jsonItem) => ProfIdiomas.fromJson(jsonItem))
+            .toList();
       } else {
         idiomas = [];
       }
@@ -134,72 +172,165 @@ class Professor {
       print(e);
     }
   }
+
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/salvar-professor'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(toJson()),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> excluir() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/excluir-professor'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id}),
+      );
+
+      final resultado = json.decode(resposta.body);
+
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
 }
 
 class ProfIdiomas {
-  final int idIdioma;
-  final String descricao;
-  final String nivel;
+  final Idioma idioma;
+  final Nivel nivel;
+  String ope;
 
   ProfIdiomas({
-    required this.idIdioma,
-    required this.descricao,
+    required this.idioma,
     required this.nivel,
-  });
+    String? ope,
+  }) : this.ope = ope ?? 'N';
 
   factory ProfIdiomas.fromJson(Map<String, dynamic> json) {
     return ProfIdiomas(
-      idIdioma: json['ID_IDIOMA'],
-      descricao: json['IDIOMA'],
-      nivel: json['NIVEL'],
+      idioma: Idioma(
+        id: json['ID_IDIOMA'],
+        descricao: json['IDIOMA'],
+      ),
+      nivel: Nivel(
+        id: json['ID_NIVEL'],
+        nivel: json['NIVEL'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      // 'ID_IDIOMA': idIdioma,
-      // 'IDIOMA': descricao,
-      // 'NIVEL': nivel,
+      'ID_IDIOMA': idioma.id,
+      'ID_NIVEL': nivel.id,
+      'OPE': ope,
     };
   }
 }
 
 class Aula {
   final int id;
-  final int idProfessor;
-  final int idIdioma;
-  final int idNivel;
-  String? professor, idioma, nivel;
-  List<Aluno> alunos = [];
+  Professor professor;
+  Idioma idioma;
+  Nivel nivel;
+  DateTime? perIni;
+  DateTime? perFin;
+  int? diaSemana;
+  TimeOfDay? horario;
+  List<AulaAlunos> alunos = [];
 
   Aula({
     required this.id,
-    required this.idProfessor,
-    required this.idIdioma,
-    required this.idNivel,
-    this.professor,
-    this.idioma,
-    this.nivel,
+    required this.professor,
+    required this.idioma,
+    required this.nivel,
+    required this.perIni,
+    required this.perFin,
+    required this.diaSemana,
+    required this.horario,
   });
+
+  String perIniFormat() {
+    if (perIni == null) {
+      return '';
+    }
+    return DateFormat('dd/MM/yyyy').format(perIni);
+  }
+
+  String perFinFormat() {
+    if (perFin == null) {
+      return '';
+    }
+    return DateFormat('dd/MM/yyyy').format(perFin);
+  }
+
+  // String horarioFormat() {
+  //   if (horario == null) {
+  //     return '';
+  //   } else {
+  //     final DateTime dateTime = DateTime(2000, 1, 1, horario!.hour, horario!.minute);
+  //     return DateFormat('HH:mm').format(dateTime);
+  //   }
+  // }
 
   factory Aula.fromJson(Map<String, dynamic> json) {
     return Aula(
       id: json['ID'],
-      idProfessor: json['ID_PROFESSOR'],
-      idIdioma: json['ID_IDIOMA'],
-      idNivel: json['ID_NIVEL'],
-      professor: json['PROFESSOR'],
-      idioma: json['IDIOMA'],
-      nivel: json['NIVEL'],
+      professor: Professor(
+          id: json['ID_PROFESSOR'],
+          nome: json['NOME_PROF'],
+          email: '',
+          telefone: '',
+          ativo: true),
+      idioma: Idioma(id: json['ID_IDIOMA'], descricao: json['DESCR_IDIOMA']),
+      nivel: Nivel(id: json['ID_NIVEL'], nivel: json['DESCR_NIVEL']),
+      perIni: DateTime.tryParse(json['PERINI']),
+      perFin: DateTime.tryParse(json['PERFIN']),
+      diaSemana: json['DIASEMANA'],
+      horario: TimeOfDay(
+        hour: int.parse(json['HORARIO'].split(":")[0]),
+        minute: int.parse(json['HORARIO'].split(":")[1]),
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'ID': id,
-      'ID_PROFESSOR': idProfessor,
-      'ID_IDIOMA': idIdioma,
-      'ID_NIVEL': idNivel,
+      'ID_PROFESSOR': professor.id,
+      'ID_IDIOMA': idioma.id,
+      'ID_NIVEL': nivel.id,
+      'PERINI': perIni,
+      'PERFIN': perFin,
+      'DIASEMANA': diaSemana,
+      'HORARIO': horario,
+      'ALUNOS': alunos,
     };
   }
 
@@ -212,7 +343,8 @@ class Aula {
       if (resposta.statusCode == 200) {
         List<dynamic> dadosJson = json.decode(resposta.body);
 
-        alunos = dadosJson.map((jsonItem) => Aluno.fromJson(jsonItem)).toList();
+        alunos =
+            dadosJson.map((jsonItem) => AulaAlunos.fromJson(jsonItem)).toList();
       } else {
         alunos = [];
       }
@@ -222,27 +354,54 @@ class Aula {
   }
 }
 
+class AulaAlunos {
+  final Aluno aluno;
+  String ope;
+
+  AulaAlunos({
+    required this.aluno,
+    String? ope,
+  }) : this.ope = ope ?? 'N';
+
+  factory AulaAlunos.fromJson(Map<String, dynamic> json) {
+    return AulaAlunos(
+      aluno: Aluno(
+        id: json['ID_ALUNO'],
+        nome: json['NOME_ALUNO'],
+        ativo: true,
+        email: '',
+        telefone: '',
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ID_ALUNO': aluno.id,
+      'OPE': ope,
+    };
+  }
+}
+
 class Nivel {
   final int id;
-  final String nivel;
-  final String descricao;
+  String nivel;
+  String? descricao;
 
   Nivel({
     required this.id,
     required this.nivel,
-    required this.descricao,
+    this.descricao,
   });
 
-  // Converte um JSON para uma instância de Nivel
   factory Nivel.fromJson(Map<String, dynamic> json) {
     return Nivel(
-      id: json['id'],
-      nivel: json['nivel'],
-      descricao: json['descricao'],
+      id: json['ID'],
+      nivel: json['NIVEL'],
+      descricao: json['DESCRICAO'],
     );
   }
 
-  // Converte uma instância de Nivel para JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -2,7 +2,9 @@ export 'libGeral.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 
 void mostrarMsg(BuildContext context, String titulo, String texto) {
   showDialog(
@@ -21,6 +23,14 @@ void mostrarMsg(BuildContext context, String titulo, String texto) {
         ],
       );
     },
+  );
+}
+
+void mostrarSnackMsg(BuildContext context, String mensagem) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(mensagem),
+    ),
   );
 }
 
@@ -152,12 +162,14 @@ class FieldBusca extends StatefulWidget {
   final String label;
   final String rota;
   final TextEditingController ctrlId;
+  final Function(String)? onChanged;
 
   const FieldBusca({
     Key? key,
     required this.label,
     required this.rota,
     required this.ctrlId,
+    this.onChanged,
   }) : super(key: key);
 
   @override
@@ -167,6 +179,7 @@ class FieldBusca extends StatefulWidget {
 class _FieldBuscaState extends State<FieldBusca> {
   final TextEditingController ctrlNome = TextEditingController();
   final FocusNode foco = FocusNode();
+  bool codInvalido = false;
 
   @override
   void initState() {
@@ -180,7 +193,9 @@ class _FieldBuscaState extends State<FieldBusca> {
       }
     });
 
-    buscaDesc();
+    if (widget.ctrlId.text.isNotEmpty) {
+      buscaDesc();
+    }
   }
 
   @override
@@ -200,8 +215,10 @@ class _FieldBuscaState extends State<FieldBusca> {
         final retorno = json.decode(resposta.body);
         if (retorno.length > 0) {
           ctrlNome.text = retorno[0]['DESCR'];
+          codInvalido = false;
         } else {
           ctrlNome.text = '';
+          codInvalido = true;
         }
         setState(() {});
       } else {
@@ -221,9 +238,14 @@ class _FieldBuscaState extends State<FieldBusca> {
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextFormField(
-              forceErrorText: ctrlNome.text.isEmpty ? 'Código Inválido' : null,
+              forceErrorText: codInvalido && ctrlNome.text.isEmpty
+                  ? 'Código Inválido'
+                  : null,
               controller: widget.ctrlId,
               focusNode: foco,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
               decoration: InputDecoration(
                 labelText: widget.label,
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -242,7 +264,13 @@ class _FieldBuscaState extends State<FieldBusca> {
                 ),
               ),
               textAlign: TextAlign.end,
-              onChanged: (value) => ctrlNome.text = '',
+              onChanged: (value) {
+                ctrlNome.text = '';
+                setState(() {});
+                if (widget.onChanged != null) {
+                  widget.onChanged!(value);
+                }
+              },
             ),
           ),
         ),
@@ -251,7 +279,8 @@ class _FieldBuscaState extends State<FieldBusca> {
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextFormField(
-              forceErrorText: ctrlNome.text.isEmpty ? '   ' : null,
+              forceErrorText:
+                  codInvalido && ctrlNome.text.isEmpty ? '   ' : null,
               controller: ctrlNome,
               readOnly: true,
               onChanged: (value) => setState(() {}),
@@ -259,6 +288,140 @@ class _FieldBuscaState extends State<FieldBusca> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class FieldData extends StatelessWidget {
+  final BuildContext ctx;
+  final TextEditingController controller;
+  final String label;
+  // final DateTime firstDate;
+  final DateTime lastDate;
+  final DateTime iniDate;
+  final bool mostraErro;
+  final String erro;
+  final Function(String?)? beforePick, afterPick;
+  final Function(String)? onChanged;
+
+  FieldData({
+    Key? key,
+    required this.ctx,
+    required this.controller,
+    required this.label,
+    // required this.firstDate,
+    DateTime? lastDate,
+    DateTime? iniDate,
+    this.mostraErro = false,
+    this.erro = 'Campo Obrigatório',
+    this.beforePick,
+    this.afterPick,
+    this.onChanged,
+  })  : iniDate = iniDate ?? DateTime.now(),
+        lastDate = lastDate ?? DateTime.now().add(const Duration(days: 120)),
+        super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        if (beforePick != null) beforePick!(controller.text);
+        FocusScope.of(context).requestFocus(FocusNode());
+        final DateTime? dt = await showDatePicker(
+          context: context,
+          initialDate: controller.text.isEmpty
+              ? iniDate
+              : DateFormat('dd/MM/yyyy').parse(controller.text),
+          firstDate: DateTime.now(),
+          lastDate: lastDate,
+          locale: Localizations.localeOf(ctx),
+        );
+        if (dt != null && dt != DateTime.tryParse(controller.text)) {
+          controller.text = DateFormat('dd/MM/yyyy').format(dt);
+          if (afterPick != null) afterPick!(controller.text);
+        }
+      },
+      child: AbsorbPointer(
+        child: TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            fillColor: Colors.white,
+            suffixIcon: const Icon(Icons.calendar_today_outlined),
+            labelText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            errorText: mostraErro && controller.text.isEmpty ? erro : null,
+          ),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class FieldHora extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final bool mostraErro;
+  final String erro;
+  final Function(String)? onChanged;
+
+  FieldHora({
+    Key? key,
+    required this.controller,
+    required this.label,
+    this.mostraErro = false,
+    this.erro = 'Campo obrigatório',
+    this.onChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () async {
+        FocusScope.of(context).requestFocus(FocusNode());
+        final TimeOfDay? horario = await showTimePicker(
+          context: context,
+          initialTime: controller.text.isEmpty
+              ? TimeOfDay.now()
+              : TimeOfDay(
+                  hour: int.parse(controller.text.split(':')[0]),
+                  minute: int.parse(controller.text.split(':')[1]),
+                ),
+          helpText: 'SELECIONE O HORÁRIO',
+          cancelText: 'CANCELAR',
+          hourLabelText: 'Hora',
+          minuteLabelText: 'Minuto',
+          builder: (BuildContext context, Widget? child) {
+            return MediaQuery(
+              data:
+                  MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+              child: child!,
+            );
+          },
+        );
+
+        if (horario != null &&
+            '${horario.hour.toString().padLeft(2, '0')} : ${horario.minute.toString().padLeft(2, '0')}' !=
+                controller.text) {
+          controller.text =
+              '${horario.hour.toString().padLeft(2, '0')} : ${horario.minute.toString().padLeft(2, '0')}';
+        }
+      },
+      child: AbsorbPointer(
+        child: TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            fillColor: Colors.white,
+            suffixIcon: const Icon(Icons.schedule_outlined),
+            labelText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            errorText: mostraErro && controller.text.isEmpty ? erro : null,
+          ),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 }
