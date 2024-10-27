@@ -163,13 +163,15 @@ class FieldBusca extends StatefulWidget {
   final String rota;
   final TextEditingController ctrlId;
   final Function(String)? onChanged;
+  bool campoObrigatorio;
 
-  const FieldBusca({
+  FieldBusca({
     Key? key,
     required this.label,
     required this.rota,
     required this.ctrlId,
     this.onChanged,
+    this.campoObrigatorio = false,
   }) : super(key: key);
 
   @override
@@ -240,7 +242,7 @@ class _FieldBuscaState extends State<FieldBusca> {
             child: TextFormField(
               forceErrorText: codInvalido && ctrlNome.text.isEmpty
                   ? 'Código Inválido'
-                  : null,
+                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty ? 'Campo Obrigatório' : null,
               controller: widget.ctrlId,
               focusNode: foco,
               inputFormatters: [
@@ -280,7 +282,9 @@ class _FieldBuscaState extends State<FieldBusca> {
             padding: const EdgeInsets.all(8.0),
             child: TextFormField(
               forceErrorText:
-                  codInvalido && ctrlNome.text.isEmpty ? '   ' : null,
+                  codInvalido && ctrlNome.text.isEmpty
+                  ? 'Código Inválido'
+                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty ? 'Campo Obrigatório' : null,
               controller: ctrlNome,
               readOnly: true,
               onChanged: (value) => setState(() {}),
@@ -296,9 +300,6 @@ class FieldData extends StatelessWidget {
   final BuildContext ctx;
   final TextEditingController controller;
   final String label;
-  // final DateTime firstDate;
-  final DateTime lastDate;
-  final DateTime iniDate;
   final bool mostraErro;
   final String erro;
   final Function(String?)? beforePick, afterPick;
@@ -309,17 +310,12 @@ class FieldData extends StatelessWidget {
     required this.ctx,
     required this.controller,
     required this.label,
-    // required this.firstDate,
-    DateTime? lastDate,
-    DateTime? iniDate,
     this.mostraErro = false,
     this.erro = 'Campo Obrigatório',
     this.beforePick,
     this.afterPick,
     this.onChanged,
-  })  : iniDate = iniDate ?? DateTime.now(),
-        lastDate = lastDate ?? DateTime.now().add(const Duration(days: 120)),
-        super(key: key);
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -330,14 +326,19 @@ class FieldData extends StatelessWidget {
         final DateTime? dt = await showDatePicker(
           context: context,
           initialDate: controller.text.isEmpty
-              ? iniDate
+              ? DateTime.now()
               : DateFormat('dd/MM/yyyy').parse(controller.text),
-          firstDate: DateTime.now(),
-          lastDate: lastDate,
+          firstDate: controller.text.isEmpty
+              ? DateTime.now()
+              : DateFormat('dd/MM/yyyy').parse(controller.text),
+          lastDate: DateTime.now().add(Duration(days: 365)),
           locale: Localizations.localeOf(ctx),
         );
         if (dt != null && dt != DateTime.tryParse(controller.text)) {
           controller.text = DateFormat('dd/MM/yyyy').format(dt);
+          if (onChanged != null) {
+            onChanged!(controller.text);
+          }
           if (afterPick != null) afterPick!(controller.text);
         }
       },
@@ -352,7 +353,6 @@ class FieldData extends StatelessWidget {
             floatingLabelBehavior: FloatingLabelBehavior.always,
             errorText: mostraErro && controller.text.isEmpty ? erro : null,
           ),
-          onChanged: onChanged,
         ),
       ),
     );
@@ -406,6 +406,9 @@ class FieldHora extends StatelessWidget {
                 controller.text) {
           controller.text =
               '${horario.hour.toString().padLeft(2, '0')} : ${horario.minute.toString().padLeft(2, '0')}';
+          if (onChanged != null) {
+            onChanged!(controller.text);
+          }
         }
       },
       child: AbsorbPointer(
@@ -419,7 +422,6 @@ class FieldHora extends StatelessWidget {
             floatingLabelBehavior: FloatingLabelBehavior.always,
             errorText: mostraErro && controller.text.isEmpty ? erro : null,
           ),
-          onChanged: onChanged,
         ),
       ),
     );

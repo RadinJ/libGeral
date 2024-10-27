@@ -277,27 +277,24 @@ class Aula {
   });
 
   String perIniFormat() {
-    if (perIni == null) {
-      return '';
-    }
-    return DateFormat('dd/MM/yyyy').format(perIni);
+    if (perIni == null) return '';
+    return DateFormat('dd/MM/yyyy').format(perIni!);
   }
 
   String perFinFormat() {
-    if (perFin == null) {
-      return '';
-    }
-    return DateFormat('dd/MM/yyyy').format(perFin);
+    if (perFin == null) return '';
+    return DateFormat('dd/MM/yyyy').format(perFin!);
   }
 
-  // String horarioFormat() {
-  //   if (horario == null) {
-  //     return '';
-  //   } else {
-  //     final DateTime dateTime = DateTime(2000, 1, 1, horario!.hour, horario!.minute);
-  //     return DateFormat('HH:mm').format(dateTime);
-  //   }
-  // }
+  String horarioFormat() {
+    if (horario == null) {
+      return '';
+    } else {
+      final DateTime dateTime =
+          DateTime(2000, 1, 1, horario!.hour, horario!.minute);
+      return DateFormat('HH:mm').format(dateTime);
+    }
+  }
 
   factory Aula.fromJson(Map<String, dynamic> json) {
     return Aula(
@@ -322,15 +319,18 @@ class Aula {
 
   Map<String, dynamic> toJson() {
     return {
-      'ID': id,
-      'ID_PROFESSOR': professor.id,
-      'ID_IDIOMA': idioma.id,
-      'ID_NIVEL': nivel.id,
-      'PERINI': perIni,
-      'PERFIN': perFin,
-      'DIASEMANA': diaSemana,
-      'HORARIO': horario,
-      'ALUNOS': alunos,
+      'id': id,
+      'idprofessor': professor.id,
+      'ididioma': idioma.id,
+      'idnivel': nivel.id,
+      'perini': perIni!.toIso8601String(),
+      'perfin': perFin!.toIso8601String(),
+      'diasemana': diaSemana,
+      'horario': horarioFormat(),
+      'alunos': alunos
+          .where((aluno) => aluno.ope != 'N')
+          .map((aluno) => aluno.toJson())
+          .toList(),
     };
   }
 
@@ -350,6 +350,135 @@ class Aula {
       }
     } catch (e) {
       print(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _validar() async {
+    List<String> msgs = [];
+    if (professor.id == 0) {
+      msgs.add('Informe o campo "Professor".');
+    }
+    if (idioma.id == 0) {
+      msgs.add('Informe o campo "Idioma".');
+    }
+    if (nivel.id == 0) {
+      msgs.add('Informe o campo "Nível".');
+    }
+    if (perIni == null) {
+      msgs.add('Informe o campo "Início Período".');
+    }
+    if (perFin == null) {
+      msgs.add('Informa o campo "Fim Período".');
+    }
+    if (diaSemana == null || diaSemana == 0) {
+      msgs.add('Informe o campo "Dia da Semana".');
+    }
+    if (horario == null) {
+      msgs.add('Informe o campo "Horário".');
+    }
+    if (alunos.where((alu) => alu.ope != 'D').toList().length <= 0) {
+      msgs.add('Informe ao menos um Aluno.');
+    }
+    if (msgs.length > 0) {
+      return {'valido': false, 'msg': msgs};
+    }
+
+    if (perIni != null &&
+        perFin != null &&
+        (perIni!.isAfter(perFin!) || perIni!.isAtSameMomentAs(perFin!))) {
+      msgs.add(
+          'O valor campo "Início Período" deve ser anterior ao valor do campo "Fim Período".');
+    }
+    await professor.getIdiomas(professor.id);
+    if (professor.idiomas
+            .where((idi) => idi.idioma.id == idioma.id)
+            .toList()
+            .where((idi) => idi.nivel.id >= nivel.id)
+            .toList()
+            .length <=
+        0) {
+      msgs.add(
+          'O professor informado não está apto a dar uma aula desse idioma nesse nível.');
+    }
+    try {
+      final resposta = await http.get(
+          Uri.parse('http://192.168.3.2:3465/verifica-horario')
+              .replace(queryParameters: {
+        'idProfessor': professor.id.toString(),
+        'diaSemana': diaSemana.toString(),
+        'horario': horarioFormat()
+      }));
+
+      if (resposta.statusCode == 200) {
+        final horarios = json.decode(resposta.body);
+        if (horarios.length > 0) {
+          msgs.add(
+              'O professor informado tem aulas conflitantes nesse dia, que começam nos horários: ${horarios.map((item) => item['HORARIO'].substring(0, 5)).join(', ')}.');
+        }
+      }
+    } catch (e) {
+      print(e);
+    }
+    if (msgs.length > 0) {
+      return {'valido': false, 'msg': msgs};
+    }
+
+    return {'valido': true};
+  }
+
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      final validar = await _validar();
+      if (validar['valido'] == false && validar['msg'].length > 0) {
+        return {
+          'code': -1,
+          'msg': validar['msg'].join('\n'),
+          'success': false,
+        };
+      } else {
+        final resposta = await http.post(
+          Uri.parse('http://192.168.3.2:3465/salvar-aula'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(toJson()),
+        );
+
+        final resultado = json.decode(resposta.body);
+        return {
+          'code': resposta.statusCode,
+          'msg': resultado['message'],
+          'success': resultado['success']
+        };
+      }
+    } catch (e) {
+      print(e);
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> excluir() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/excluir-aula'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id}),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
     }
   }
 }
