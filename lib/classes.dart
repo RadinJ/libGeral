@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 
 class Idioma {
   final int id;
-  final String descricao;
+  String descricao;
 
   Idioma({
     required this.id,
@@ -28,6 +28,68 @@ class Idioma {
       'ID': id,
       'IDIOMA': descricao,
     };
+  }
+
+  Future<Map<String, dynamic>> _validar() async {
+    if (descricao == '') {
+      return {'valido': false, 'msg': 'Informe a Descrição'};
+    }
+    return {'valido': true};
+  }
+
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      final validar = await _validar();
+      if (validar['valido'] == false) {
+        return {
+          'code': -1,
+          'msg': validar['msg'],
+          'success': false,
+        };
+      } else {
+        final resposta = await http.post(
+          Uri.parse('http://192.168.3.2:3465/salvar-idioma'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(toJson()),
+        );
+
+        final resultado = json.decode(resposta.body);
+        return {
+          'code': resposta.statusCode,
+          'msg': resultado['message'],
+          'success': resultado['success']
+        };
+      }
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> excluir() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/excluir-idioma'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id}),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
   }
 }
 
@@ -169,7 +231,7 @@ class Professor {
         idiomas = [];
       }
     } catch (e) {
-      print(e);
+      // print(e);
     }
   }
 
@@ -349,7 +411,7 @@ class Aula {
         alunos = [];
       }
     } catch (e) {
-      print(e);
+      // print(e);
     }
   }
 
@@ -417,7 +479,7 @@ class Aula {
         }
       }
     } catch (e) {
-      print(e);
+      // print(e);
     }
     if (msgs.length > 0) {
       return {'valido': false, 'msg': msgs};
@@ -450,7 +512,7 @@ class Aula {
         };
       }
     } catch (e) {
-      print(e);
+      // print(e);
       return {
         'code': 0,
         'msg': 'Houve um erro de comunicação com o servidor.',

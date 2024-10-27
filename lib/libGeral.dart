@@ -158,6 +158,32 @@ Future<dynamic> mostrarBusca(BuildContext ctx, String rota, String titulo) {
   );
 }
 
+class FieldCod extends StatelessWidget {
+  final TextEditingController controller;
+
+  FieldCod({
+    Key? key,
+    required this.controller,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (controller.text == "0") {
+      controller.text = "";
+    }
+
+    return TextFormField(
+      controller: controller,
+      readOnly: true,
+      decoration: const InputDecoration(
+        labelText: 'Código',
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+      ),
+      textAlign: TextAlign.right,
+    );
+  }
+}
+
 class FieldBusca extends StatefulWidget {
   final String label;
   final String rota;
@@ -242,7 +268,9 @@ class _FieldBuscaState extends State<FieldBusca> {
             child: TextFormField(
               forceErrorText: codInvalido && ctrlNome.text.isEmpty
                   ? 'Código Inválido'
-                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty ? 'Campo Obrigatório' : null,
+                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty
+                      ? 'Campo Obrigatório'
+                      : null,
               controller: widget.ctrlId,
               focusNode: foco,
               inputFormatters: [
@@ -281,10 +309,11 @@ class _FieldBuscaState extends State<FieldBusca> {
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: TextFormField(
-              forceErrorText:
-                  codInvalido && ctrlNome.text.isEmpty
+              forceErrorText: codInvalido && ctrlNome.text.isEmpty
                   ? 'Código Inválido'
-                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty ? 'Campo Obrigatório' : null,
+                  : widget.campoObrigatorio && widget.ctrlId.text.isEmpty
+                      ? 'Campo Obrigatório'
+                      : null,
               controller: ctrlNome,
               readOnly: true,
               onChanged: (value) => setState(() {}),
@@ -423,6 +452,68 @@ class FieldHora extends StatelessWidget {
             errorText: mostraErro && controller.text.isEmpty ? erro : null,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class BotoesCadastro extends StatefulWidget {
+  final Function()? novo;
+  final Function()? salvar;
+  final Function()? cancelar;
+  final Function()? excluir;
+  bool insercao;
+  bool edicao;
+
+  BotoesCadastro({
+    Key? key,
+    required this.novo,
+    required this.salvar,
+    required this.cancelar,
+    required this.excluir,
+    required this.insercao,
+    required this.edicao,
+  }) : super(key: key);
+
+  @override
+  _BotoesCadastroState createState() => _BotoesCadastroState();
+}
+
+class _BotoesCadastroState extends State<BotoesCadastro> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade300,
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: ToggleButtons(
+        borderWidth: 5,
+        renderBorder: true,
+        color: Colors.grey,
+        fillColor: Colors.white,
+        isSelected: [
+          !widget.insercao && !widget.edicao,
+          widget.insercao || widget.edicao,
+          widget.insercao || widget.edicao,
+          !widget.insercao && !widget.edicao,
+        ],
+        onPressed: (idx) async {
+          if (idx == 0 && widget.novo != null) {
+            widget.novo!();
+          } else if (idx == 1) {
+            widget.salvar!();
+          } else if (idx == 2) {
+            widget.cancelar!();
+          } else if (idx == 3) {
+            widget.excluir!();
+          }
+        },
+        children: const [
+          Icon(Icons.add_outlined),
+          Icon(Icons.save_outlined),
+          Icon(Icons.cancel_outlined),
+          Icon(Icons.delete_outline),
+        ],
       ),
     );
   }
