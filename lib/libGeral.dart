@@ -54,7 +54,7 @@ void mostrarPopUp(BuildContext context, String titulo, Widget conteudo) {
   );
 }
 
-Future<dynamic> mostrarBusca(BuildContext ctx, String rota, String titulo) {
+Future<dynamic> mostrarBusca(BuildContext ctx, String rota, String titulo, {Map<String, String>? params}) {
   TextEditingController ctrlFiltro = TextEditingController();
   List<Map<String, dynamic>> dadosOriginais = [];
   List<Map<String, dynamic>> dadosFiltrados = [];
@@ -62,7 +62,7 @@ Future<dynamic> mostrarBusca(BuildContext ctx, String rota, String titulo) {
   Future<List<Map<String, dynamic>>> buscaDados() async {
     try {
       final resposta =
-          await http.get(Uri.parse('http://192.168.3.2:3465/busca-$rota'));
+          await http.get(Uri.parse('http://192.168.3.2:3465/busca-$rota').replace(queryParameters: params));
 
       if (resposta.statusCode == 200) {
         return List<Map<String, dynamic>>.from(json.decode(resposta.body));
@@ -158,6 +158,18 @@ Future<dynamic> mostrarBusca(BuildContext ctx, String rota, String titulo) {
   );
 }
 
+void substituirTela(BuildContext context, Widget telaDestino) {
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(builder: (context) => telaDestino),
+  );
+}
+
+void abrirTela(BuildContext context, Widget telaDestino) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (context) => telaDestino),
+  );
+}
+
 class FieldCod extends StatelessWidget {
   final TextEditingController controller;
 
@@ -237,7 +249,7 @@ class _FieldBuscaState extends State<FieldBusca> {
   void buscaDesc() async {
     try {
       final resposta = await http.get(Uri.parse(
-          'http://192.168.3.2:3465/busca-${widget.rota}?id=${int.parse(widget.ctrlId.text)}'));
+          'http://192.168.3.2:3465/busca-${widget.rota}?id=${int.parse(widget.ctrlId.text)}'), );
 
       if (resposta.statusCode == 200) {
         final retorno = json.decode(resposta.body);

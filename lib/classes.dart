@@ -363,12 +363,12 @@ class Aula {
       id: json['ID'],
       professor: Professor(
           id: json['ID_PROFESSOR'],
-          nome: json['NOME_PROF'],
+          nome: json['NOME_PROF'] ?? '',
           email: '',
           telefone: '',
           ativo: true),
-      idioma: Idioma(id: json['ID_IDIOMA'], descricao: json['DESCR_IDIOMA']),
-      nivel: Nivel(id: json['ID_NIVEL'], nivel: json['DESCR_NIVEL']),
+      idioma: Idioma(id: json['ID_IDIOMA'], descricao: json['DESCR_IDIOMA'] ?? ''),
+      nivel: Nivel(id: json['ID_NIVEL'], nivel: json['DESCR_NIVEL'] ?? ''),
       perIni: DateTime.tryParse(json['PERINI']),
       perFin: DateTime.tryParse(json['PERFIN']),
       diaSemana: json['DIASEMANA'],
@@ -599,5 +599,177 @@ class Nivel {
       'nivel': nivel,
       'descricao': descricao,
     };
+  }
+}
+
+class Solicitacao {
+  final int id;
+  Aluno aluno;
+  Aula aula;
+  DateTime? data;
+  TimeOfDay? hora;
+  String motivo;
+  String situacao;
+  String? justificativa;
+
+  Solicitacao({
+    required this.id,
+    required this.aluno,
+    required this.aula,
+    required this.data,
+    required this.hora,
+    required this.motivo,
+    required this.situacao,
+    required this.justificativa,
+  });
+
+  String horarioFormat() {
+    if (hora == null) {
+      return '';
+    } else {
+      final DateTime dateTime = DateTime(2000, 1, 1, hora!.hour, hora!.minute);
+      return DateFormat('HH:mm').format(dateTime);
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ID': id,
+      'ID_ALUNO': aluno.id,
+      'ID_AULA': aula.id,
+      'DTSOLIC': this.data!.toIso8601String(),
+      'HORA': horarioFormat(),
+      'MOTIVO': motivo,
+      'SITUACAO': situacao,
+      'JUSTIFICATIVA': justificativa,
+    };
+  }
+
+  factory Solicitacao.fromJson(Map<String, dynamic> json) {
+    return Solicitacao(
+      id: json['ID'],
+      aluno: Aluno(
+          id: json['ID_ALUNO'], nome: '', email: '', ativo: true, telefone: ''),
+      aula: Aula(
+          id: json['ID_AULA'],
+          professor:
+              Professor(id: 0, nome: '', email: '', telefone: '', ativo: true),
+          idioma: Idioma(id: 0, descricao: ''),
+          nivel: Nivel(id: 0, nivel: ''),
+          perIni: null,
+          perFin: null,
+          diaSemana: null,
+          horario: null),
+      data: DateTime.parse(json['DTSOLIC']),
+      hora: TimeOfDay(
+        hour: int.parse(json['HORA'].split(":")[0]),
+        minute: int.parse(json['HORA'].split(":")[1]),
+      ),
+      motivo: json['MOTIVO'],
+      situacao: json['SITUACAO'],
+      justificativa: json['JUSITIFICATIVA'],
+    );
+  }
+
+  Future<Map<String, dynamic>> _validar() async {
+    List<String> msgs = [];
+    if (aluno.id == 0) {
+      msgs.add('Informe o campo "Aluno".');
+    }
+    if (aula.id == 0) {
+      msgs.add('Informe o campo "Aula".');
+    }
+    if (data == null) {
+      msgs.add('Informe o campo "Data".');
+    }
+    if (hora == null) {
+      msgs.add('Informe o campo "Hora".');
+    }
+    if (motivo.isNotEmpty) {
+      msgs.add('Informa o campo "Motivo".');
+    }
+    if (msgs.length > 0) {
+      return {'valido': false, 'msg': msgs};
+    }
+
+    try {
+      final resposta = await http.get(
+          Uri.parse('http://192.168.3.2:3465/verifica-horario-repo')
+              .replace(queryParameters: {
+        'data': data,
+        'horario': horarioFormat(),
+      }));
+
+      if (resposta.statusCode == 200) {
+        final horarios = json.decode(resposta.body);
+        if (horarios.length > 0) {
+          msgs.add(
+              'O professor informado tem aulas conflitantes nesse dia, que começam nos horários: ${horarios.map((item) => item['HORARIO'].substring(0, 5)).join(', ')}.');
+        }
+      }
+    } catch (e) {
+      // print(e);
+    }
+    if (msgs.length > 0) {
+      return {'valido': false, 'msg': msgs};
+    }
+
+    return {'valido': true};
+  }
+
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      // final validar = await _validar();
+      // if (validar['valido'] == false && validar['msg'].length > 0) {
+      //   return {
+      //     'code': -1,
+      //     'msg': validar['msg'].join('\n'),
+      //     'success': false,
+      //   };
+      // } else {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/salvar-solicitacao'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(toJson()),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+      // }
+    } catch (e) {
+      // print(e);
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> excluir() async {
+    try {
+      final resposta = await http.post(
+        Uri.parse('http://192.168.3.2:3465/excluir-aula'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id}),
+      );
+
+      final resultado = json.decode(resposta.body);
+      return {
+        'code': resposta.statusCode,
+        'msg': resultado['message'],
+        'success': resultado['success']
+      };
+    } catch (e) {
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
   }
 }
