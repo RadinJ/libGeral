@@ -46,7 +46,7 @@ void mostrarPopUp(BuildContext context, String titulo, Widget conteudo) {
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('Cancelar'),
+            child: Text('Fechar'),
           ),
         ],
       );
@@ -164,10 +164,14 @@ void substituirTela(BuildContext context, Widget telaDestino) {
   );
 }
 
-void abrirTela(BuildContext context, Widget telaDestino) {
+void abrirTela(BuildContext context, Widget telaDestino, [VoidCallback? depois]) {
   Navigator.of(context).push(
     MaterialPageRoute(builder: (context) => telaDestino),
-  );
+  ).then((_) {
+    if (depois != null){
+      depois();
+    }
+  });
 }
 
 class FieldCod extends StatelessWidget {

@@ -99,6 +99,7 @@ class Aluno {
   String email;
   bool ativo;
   String telefone;
+  int aulasRepo;
 
   Aluno({
     required this.id,
@@ -106,6 +107,7 @@ class Aluno {
     required this.email,
     required this.ativo,
     required this.telefone,
+    this.aulasRepo = 0,
   });
 
   factory Aluno.fromJson(Map<String, dynamic> json) {
@@ -115,6 +117,7 @@ class Aluno {
       email: json['EMAIL'] ?? '',
       ativo: (json['ATIVO'] ?? 0) == 1,
       telefone: json['TELEFONE'] ?? '',
+      aulasRepo: json['AULAS_REPO'] ?? 0,
     );
   }
 
@@ -367,7 +370,8 @@ class Aula {
           email: '',
           telefone: '',
           ativo: true),
-      idioma: Idioma(id: json['ID_IDIOMA'], descricao: json['DESCR_IDIOMA'] ?? ''),
+      idioma:
+          Idioma(id: json['ID_IDIOMA'], descricao: json['DESCR_IDIOMA'] ?? ''),
       nivel: Nivel(id: json['ID_NIVEL'], nivel: json['DESCR_NIVEL'] ?? ''),
       perIni: DateTime.tryParse(json['PERINI']),
       perFin: DateTime.tryParse(json['PERFIN']),
@@ -623,6 +627,11 @@ class Solicitacao {
     required this.justificativa,
   });
 
+  String dataFormat() {
+    if (data == null) return '';
+    return DateFormat('dd/MM/yyyy').format(data!);
+  }
+
   String horarioFormat() {
     if (hora == null) {
       return '';
@@ -649,13 +658,22 @@ class Solicitacao {
     return Solicitacao(
       id: json['ID'],
       aluno: Aluno(
-          id: json['ID_ALUNO'], nome: '', email: '', ativo: true, telefone: ''),
+          id: json['ID_ALUNO'],
+          nome: json['NOME_ALUNO'] ?? '',
+          email: '',
+          ativo: true,
+          telefone: ''),
       aula: Aula(
           id: json['ID_AULA'],
-          professor:
-              Professor(id: 0, nome: '', email: '', telefone: '', ativo: true),
-          idioma: Idioma(id: 0, descricao: ''),
-          nivel: Nivel(id: 0, nivel: ''),
+          professor: Professor(
+              id: json['ID_PROF_AULA'] ?? 0,
+              nome: json['NOME_PROF_AULA'] ?? '',
+              email: '',
+              telefone: '',
+              ativo: true),
+          idioma:
+              Idioma(id: json['ID_AULA'] ?? 0, descricao: json['IDIOMA'] ?? ''),
+          nivel: Nivel(id: json['ID_NIVEL'] ?? 0, nivel: json['NIVEL'] ?? ''),
           perIni: null,
           perFin: null,
           diaSemana: null,
@@ -750,14 +768,26 @@ class Solicitacao {
     }
   }
 
-  Future<Map<String, dynamic>> excluir() async {
+  Future<Map<String, dynamic>> aprovaReprova(String situacao) async {
     try {
+      if (situacao == 'R' && (justificativa == null || justificativa!.isEmpty)) {
+        return {
+          'code': -1,
+          'msg': 'Você deve informar a justificativa!',
+          'success': false
+        };
+      }
       final resposta = await http.post(
-        Uri.parse('http://192.168.3.2:3465/excluir-aula'),
+        Uri.parse('http://192.168.3.2:3465/solic-aprova-reprova'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'id': id}),
+        body: json.encode(
+          {
+            'ID': id,
+            'SITUACAO': situacao,
+            'JUSTIFICATIVA': justificativa,
+          },
+        ),
       );
-
       final resultado = json.decode(resposta.body);
       return {
         'code': resposta.statusCode,
@@ -771,5 +801,155 @@ class Solicitacao {
         'success': false
       };
     }
+  }
+}
+
+class Chamada {
+  int id;
+  Aula aula;
+  Professor profe;
+  DateTime datahora;
+  List<ChamadaPresenca> presencas = [];
+
+  Chamada({
+    required this.id,
+    required this.aula,
+    required this.profe,
+    required this.datahora,
+  });
+
+  factory Chamada.fromJson(Map<String, dynamic> json) {
+    return Chamada(
+      id: json['ID'],
+      profe: Professor(
+          id: json['ID_PROFESSOR'],
+          nome: json['NOME_PROFESSOR'],
+          email: '',
+          telefone: '',
+          ativo: true),
+      aula: Aula(
+        id: json['ID_AULA'],
+        professor: Professor(
+            id: json['ID_PROFESSOR'],
+            nome: json['NOME_PROFESSOR'],
+            email: '',
+            telefone: '',
+            ativo: true),
+        idioma: Idioma(id: json['ID_IDIOMA'], descricao: json['DESC_IDIOMA']),
+        nivel: Nivel(id: json['ID_NIVEL'], nivel: json['DESC_NIVEL']),
+        perIni: null,
+        perFin: null,
+        diaSemana: null,
+        horario: null,
+      ),
+      datahora: DateTime.parse(json['DATAHORA']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ID': id,
+      'ID_AULA': aula.id,
+      'ID_PROFESSOR': profe.id,
+      'DATAHORA': datahora.toIso8601String(),
+      'PRESENCAS': presencas.map((presenca) => presenca.toJson()).toList(),
+    };
+  }
+
+  Future<void> getPresenca() async {
+    try {
+      await aula.getAlunos(aula.id);
+
+      print(aula.alunos[0].aluno.id);
+
+      for (var alu in aula.alunos) {
+        presencas.add(ChamadaPresenca(aluno: alu.aluno, presente: null));
+      }
+      print('Presença ${presencas[0].aluno.id}');
+    } catch (e) {
+      // print(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _validar() async {
+    List<String> msgs = [];
+    if (aula.id == 0) {
+      msgs.add('Houve um problema com o campo "Aula".');
+    }
+    if (profe.id == 0) {
+      msgs.add('Houve um problema com o campo "Professor".');
+    }
+    if (presencas.any((chamada) => chamada.presente == null)) {
+      msgs.add(
+          'É necessário responder a chamada de todos os alunos para prosseguir.');
+    }
+    if (msgs.length > 0) {
+      return {'valido': false, 'msg': msgs};
+    }
+
+    return {'valido': true};
+  }
+
+  Future<Map<String, dynamic>> gravar() async {
+    try {
+      final validar = await _validar();
+      if (validar['valido'] == false && validar['msg'].length > 0) {
+        return {
+          'code': -1,
+          'msg': validar['msg'].join('\n'),
+          'success': false,
+        };
+      } else {
+        final resposta = await http.post(
+          Uri.parse('http://192.168.3.2:3465/salvar-chamada'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(toJson()),
+        );
+
+        final resultado = json.decode(resposta.body);
+        return {
+          'code': resposta.statusCode,
+          'msg': resultado['message'],
+          'success': resultado['success']
+        };
+      }
+    } catch (e) {
+      print(e);
+      return {
+        'code': 0,
+        'msg': 'Houve um erro de comunicação com o servidor.',
+        'success': false
+      };
+    }
+  }
+}
+
+class ChamadaPresenca {
+  Aluno aluno;
+  int? presente;
+
+  ChamadaPresenca({
+    required this.aluno,
+    this.presente,
+  });
+
+  factory ChamadaPresenca.fromJson(Map<String, dynamic> json) {
+    return ChamadaPresenca(
+      aluno: Aluno(
+        id: json['ID_ALUNO'],
+        nome: json['NOME_ALUNO'],
+        ativo: true,
+        email: '',
+        telefone: '',
+      ),
+      presente: json['PRESENCA'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ID_ALUNO': aluno.id,
+      'PRESENCA': presente,
+    };
   }
 }
