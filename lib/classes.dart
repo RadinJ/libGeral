@@ -7,6 +7,22 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
+abstract class Pessoa {
+  final int id;
+  String nome;
+  String email;
+  bool ativo;
+  String telefone;
+
+  Pessoa({
+    required this.id,
+    required this.nome,
+    required this.email,
+    required this.ativo,
+    required this.telefone,
+  });
+}
+
 class Idioma {
   final int id;
   String descricao;
@@ -93,22 +109,17 @@ class Idioma {
   }
 }
 
-class Aluno {
-  final int id;
-  String nome;
-  String email;
-  bool ativo;
-  String telefone;
+class Aluno extends Pessoa {
   int aulasRepo;
 
   Aluno({
-    required this.id,
-    required this.nome,
-    required this.email,
-    required this.ativo,
-    required this.telefone,
+    required final int id,
+    required String nome,
+    required String email,
+    required bool ativo,
+    required String telefone,
     this.aulasRepo = 0,
-  });
+  }) : super(id: id, nome: nome, email: email, ativo: ativo, telefone: telefone);
 
   factory Aluno.fromJson(Map<String, dynamic> json) {
     return Aluno(
@@ -178,21 +189,16 @@ class Aluno {
   }
 }
 
-class Professor {
-  final int id;
-  String nome;
-  String email;
-  String telefone;
-  bool ativo;
+class Professor extends Pessoa {
   List<ProfIdiomas> idiomas = [];
 
   Professor({
-    required this.id,
-    required this.nome,
-    required this.email,
-    required this.telefone,
-    required this.ativo,
-  });
+    required final int id,
+    required String nome,
+    required String email,
+    required bool ativo,
+    required String telefone,
+  }) : super(id: id, nome: nome, email: email, ativo: ativo, telefone: telefone);
 
   factory Professor.fromJson(Map<String, dynamic> json) {
     return Professor(
@@ -615,6 +621,7 @@ class Solicitacao {
   String motivo;
   String situacao;
   String? justificativa;
+  Professor? professor;
 
   Solicitacao({
     required this.id,
@@ -625,6 +632,7 @@ class Solicitacao {
     required this.motivo,
     required this.situacao,
     required this.justificativa,
+    this.professor,
   });
 
   String dataFormat() {
@@ -770,10 +778,18 @@ class Solicitacao {
 
   Future<Map<String, dynamic>> aprovaReprova(String situacao) async {
     try {
-      if (situacao == 'R' && (justificativa == null || justificativa!.isEmpty)) {
+      List<String> msgs = [];
+      if (situacao == 'R' &&
+          (justificativa == null || justificativa!.isEmpty)) {
+        msgs.add('Você deve informar a justificativa!');
+      }
+      if (situacao == 'A' && professor == null || professor!.id == 0) {
+        msgs.add('Você deve informar o professor!');
+      }
+      if (msgs.length > 0) {
         return {
           'code': -1,
-          'msg': 'Você deve informar a justificativa!',
+          'msg': msgs.join('\n'),
           'success': false
         };
       }
@@ -785,6 +801,7 @@ class Solicitacao {
             'ID': id,
             'SITUACAO': situacao,
             'JUSTIFICATIVA': justificativa,
+            if (professor != null) 'ID_PROFESSOR': professor!.id,
           },
         ),
       );
@@ -865,7 +882,6 @@ class Chamada {
       for (var alu in aula.alunos) {
         presencas.add(ChamadaPresenca(aluno: alu.aluno, presente: null));
       }
-      print('Presença ${presencas[0].aluno.id}');
     } catch (e) {
       // print(e);
     }

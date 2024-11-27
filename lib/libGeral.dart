@@ -169,7 +169,7 @@ void abrirTela(BuildContext context, Widget telaDestino, [VoidCallback? depois])
     MaterialPageRoute(builder: (context) => telaDestino),
   ).then((_) {
     if (depois != null){
-      depois();
+      depois(); 
     }
   });
 }
@@ -373,9 +373,7 @@ class FieldData extends StatelessWidget {
           initialDate: controller.text.isEmpty
               ? DateTime.now()
               : DateFormat('dd/MM/yyyy').parse(controller.text),
-          firstDate: controller.text.isEmpty
-              ? DateTime.now()
-              : DateFormat('dd/MM/yyyy').parse(controller.text),
+          firstDate: DateTime.now().subtract(Duration(days: 365)),
           lastDate: DateTime.now().add(Duration(days: 365)),
           locale: Localizations.localeOf(ctx),
         );
@@ -480,6 +478,7 @@ class BotoesCadastro extends StatefulWidget {
   final Function()? excluir;
   bool insercao;
   bool edicao;
+  final List<Widget> botoesAux;
 
   BotoesCadastro({
     Key? key,
@@ -489,6 +488,7 @@ class BotoesCadastro extends StatefulWidget {
     required this.excluir,
     required this.insercao,
     required this.edicao,
+    this.botoesAux = const [],
   }) : super(key: key);
 
   @override
@@ -502,33 +502,39 @@ class _BotoesCadastroState extends State<BotoesCadastro> {
       width: double.infinity,
       color: Colors.grey.shade300,
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: ToggleButtons(
-        borderWidth: 5,
-        renderBorder: true,
-        color: Colors.grey,
-        fillColor: Colors.white,
-        isSelected: [
-          !widget.insercao && !widget.edicao,
-          widget.insercao || widget.edicao,
-          widget.insercao || widget.edicao,
-          !widget.insercao && !widget.edicao,
-        ],
-        onPressed: (idx) async {
-          if (idx == 0 && widget.novo != null) {
-            widget.novo!();
-          } else if (idx == 1) {
-            widget.salvar!();
-          } else if (idx == 2) {
-            widget.cancelar!();
-          } else if (idx == 3) {
-            widget.excluir!();
-          }
-        },
-        children: const [
-          Icon(Icons.add_outlined),
-          Icon(Icons.save_outlined),
-          Icon(Icons.cancel_outlined),
-          Icon(Icons.delete_outline),
+      child: Row(
+        children: [
+          ToggleButtons(
+            borderWidth: 5,
+            renderBorder: true,
+            color: Colors.grey,
+            fillColor: Colors.white,
+            isSelected: [
+              !widget.insercao && !widget.edicao,
+              widget.insercao || widget.edicao,
+              widget.insercao || widget.edicao,
+              !widget.insercao && !widget.edicao,
+            ],
+            onPressed: (idx) async {
+              if (idx == 0 && widget.novo != null) {
+                widget.novo!();
+              } else if (idx == 1) {
+                widget.salvar!();
+              } else if (idx == 2) {
+                widget.cancelar!();
+              } else if (idx == 3) {
+                widget.excluir!();
+              }
+            },
+            children: const [
+              Icon(Icons.add_outlined),
+              Icon(Icons.save_outlined),
+              Icon(Icons.cancel_outlined),
+              Icon(Icons.delete_outline),
+            ],
+          ),
+          SizedBox(width: 20),
+          ...widget.botoesAux,
         ],
       ),
     );
