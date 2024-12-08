@@ -693,7 +693,7 @@ class Solicitacao {
       ),
       motivo: json['MOTIVO'],
       situacao: json['SITUACAO'],
-      justificativa: json['JUSITIFICATIVA'],
+      justificativa: json['JUSTIFICATIVA'],
     );
   }
 
@@ -783,7 +783,7 @@ class Solicitacao {
           (justificativa == null || justificativa!.isEmpty)) {
         msgs.add('Você deve informar a justificativa!');
       }
-      if (situacao == 'A' && professor == null || professor!.id == 0) {
+      if (situacao == 'A' && (professor == null || professor!.id == 0)) {
         msgs.add('Você deve informar o professor!');
       }
       if (msgs.length > 0) {
@@ -802,6 +802,7 @@ class Solicitacao {
             'SITUACAO': situacao,
             'JUSTIFICATIVA': justificativa,
             if (professor != null) 'ID_PROFESSOR': professor!.id,
+            if (situacao == 'R') 'ID_ALUNO': aluno.id,
           },
         ),
       );
@@ -876,8 +877,6 @@ class Chamada {
   Future<void> getPresenca() async {
     try {
       await aula.getAlunos(aula.id);
-
-      print(aula.alunos[0].aluno.id);
 
       for (var alu in aula.alunos) {
         presencas.add(ChamadaPresenca(aluno: alu.aluno, presente: null));

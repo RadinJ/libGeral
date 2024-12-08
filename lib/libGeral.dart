@@ -164,13 +164,14 @@ void substituirTela(BuildContext context, Widget telaDestino) {
   );
 }
 
-void abrirTela(BuildContext context, Widget telaDestino, [VoidCallback? depois]) {
-  Navigator.of(context).push(
+dynamic abrirTela(BuildContext context, Widget telaDestino, [VoidCallback? depois]) {
+  return Navigator.of(context).push(
     MaterialPageRoute(builder: (context) => telaDestino),
-  ).then((_) {
+  ).then((resultado) {
     if (depois != null){
       depois(); 
     }
+    return resultado;
   });
 }
 
@@ -349,6 +350,8 @@ class FieldData extends StatelessWidget {
   final String erro;
   final Function(String?)? beforePick, afterPick;
   final Function(String)? onChanged;
+  final DateTime? primDia;
+  final DateTime? ultDia;
 
   FieldData({
     Key? key,
@@ -360,6 +363,8 @@ class FieldData extends StatelessWidget {
     this.beforePick,
     this.afterPick,
     this.onChanged,
+    this.primDia,
+    this.ultDia,
   }) : super(key: key);
 
   @override
@@ -373,8 +378,8 @@ class FieldData extends StatelessWidget {
           initialDate: controller.text.isEmpty
               ? DateTime.now()
               : DateFormat('dd/MM/yyyy').parse(controller.text),
-          firstDate: DateTime.now().subtract(Duration(days: 365)),
-          lastDate: DateTime.now().add(Duration(days: 365)),
+          firstDate: primDia ?? DateTime.now().subtract(Duration(days: 365)),
+          lastDate: ultDia ?? DateTime.now().add(Duration(days: 365)),
           locale: Localizations.localeOf(ctx),
         );
         if (dt != null && dt != DateTime.tryParse(controller.text)) {
